@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-    "math"
-    "context"
+	"math"
+	"context"
 
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/time/rate"
@@ -22,8 +22,8 @@ import (
 
 const (
 	baseURL   = "https://api-sscasn.bkn.go.id/2024/portal/spf"
-    maxRetries = 5
-    initialDelay = 500 * time.Millisecond
+	maxRetries = 5
+	initialDelay = 500 * time.Millisecond
 )
 
 var headers = map[string]string{
@@ -34,13 +34,13 @@ var headers = map[string]string{
 	"host":               "api-sscasn.bkn.go.id",
 	"origin":             "https://sscasn.bkn.go.id",
 	"referer":            "https://sscasn.bkn.go.id/",
-    "sec-ch-ua":          "\"Not)A;Brand\";v=\"99\", \"Google Chrome\";v=\"114\", \"Chromium\";v=\"114\"",
+	"sec-ch-ua":          "\"Not)A;Brand\";v=\"99\", \"Google Chrome\";v=\"114\", \"Chromium\";v=\"114\"",
 	"sec-ch-ua-mobile":   "?1",
 	"sec-ch-ua-platform": "\"Android\"",
 	"sec-fetch-dest":     "empty",
 	"sec-fetch-mode":     "cors",
 	"sec-fetch-site":     "same-site",
-    "user-agent":         "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230805.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.110 Mobile Safari/537.36",
+	"user-agent":         "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230805.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.110 Mobile Safari/537.36",
 }
 
 type Response struct {
@@ -82,10 +82,10 @@ func backoff(attempt int) time.Duration {
 
 func fetchData(cfg *Config, offset int) (*Response, error) {
 	var url string = fmt.Sprintf("%s?kode_ref_pend=%s&offset=%d", baseURL, cfg.KodeRefPend, offset)
-    var data *Response
-    var err error
+	var data *Response
+	var err error
 
-    for attempt := 1; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
 		data, err = fetchJSON[Response](cfg, url)
 
 		if err == nil {
@@ -100,9 +100,9 @@ func fetchData(cfg *Config, offset int) (*Response, error) {
 }
 
 func fetchDetailData(cfg *Config, formasiID string) (*DetailResponse, error) {
-    var detail *DetailResponse
-    var url string = baseURL + "/" + formasiID
-    var err error
+	var detail *DetailResponse
+	var url string = baseURL + "/" + formasiID
+	var err error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		detail, err = fetchJSON[DetailResponse](cfg, url)
@@ -158,66 +158,66 @@ func fetchJSON[T Response | DetailResponse](cfg *Config, url string) (*T, error)
 }
 
 func processData(cfg *Config, totalData int) ([]map[string]interface{}, error) {
-    var completeData []map[string]interface{}
-    var wg sync.WaitGroup
+	var completeData []map[string]interface{}
+	var wg sync.WaitGroup
 
-    numWorkers := 10
-    jobs := make(chan int, totalData)
-    results := make(chan map[string]interface{}, totalData)
+	numWorkers := 10
+	jobs := make(chan int, totalData)
+	results := make(chan map[string]interface{}, totalData)
 
-    for w := 0; w < numWorkers; w++ {
-        wg.Add(1)
-        go worker(cfg, &wg, jobs, results)
-    }
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go worker(cfg, &wg, jobs, results)
+	}
 
-    for offset := 0; offset < totalData; offset += 10 {
-        jobs <- offset
-    }
-    close(jobs)
+	for offset := 0; offset < totalData; offset += 10 {
+		jobs <- offset
+	}
+	close(jobs)
 
-    go func() {
-        wg.Wait()
-        close(results)
-    }()
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 
-    for result := range results {
-        completeData = append(completeData, result)
-    }
+	for result := range results {
+		completeData = append(completeData, result)
+	}
 
-    return completeData, nil
+	return completeData, nil
 }
 
 func worker(cfg *Config, wg *sync.WaitGroup, jobs <-chan int, results chan<- map[string]interface{}) {
-   defer wg.Done()
-   for offset := range jobs {
-       data, err := fetchData(cfg, offset)
-       if err != nil {
-           log.Printf("Failed to fetch data at offset %d after retries: %v\n", offset, err)
-           continue
-       }
+	defer wg.Done()
+	for offset := range jobs {
+		data, err := fetchData(cfg, offset)
+		if err != nil {
+			log.Printf("Failed to fetch data at offset %d after retries: %v\n", offset, err)
+			continue
+		}
 
-       for _, record := range data.Data.Data {
-           if cfg.FilterLokasi == "" || strings.Contains(strings.ToLower(record["lokasi_nm"].(string)), strings.ToLower(cfg.FilterLokasi)) {
-               formasiID := fmt.Sprintf("%v", record["formasi_id"])
-               detailData, err := fetchDetailData(cfg, formasiID)
-               if err != nil {
-                   log.Printf("Skipping record with formasi_id %s due to failed detail fetching: %v\n", formasiID, err)
-                   continue
-               }
+		for _, record := range data.Data.Data {
+			if cfg.FilterLokasi == "" || strings.Contains(strings.ToLower(record["lokasi_nm"].(string)), strings.ToLower(cfg.FilterLokasi)) {
+				formasiID := fmt.Sprintf("%v", record["formasi_id"])
+				detailData, err := fetchDetailData(cfg, formasiID)
+				if err != nil {
+					log.Printf("Skipping record with formasi_id %s due to failed detail fetching: %v\n", formasiID, err)
+					continue
+				}
 
-               record["job_desc"] = detailData.Data.JobDesc
-               record["keahlian"] = detailData.Data.Keahlian
-               record["link_web_instansi"] = detailData.Data.LinkWebInstansi
-               record["call_center_instansi"] = detailData.Data.CallCenterInstansi
-               record["medsos_instansi"] = detailData.Data.MedsosInstansi
-               record["helpdesk_instansi"] = detailData.Data.HelpdeskInstansi
-               record["syarat_admin"] = detailData.Data.SyaratAdmin
-               record["kualifikasi_pendidikan"] = detailData.Data.KualifikasiPendidikan
+				record["job_desc"] = detailData.Data.JobDesc
+				record["keahlian"] = detailData.Data.Keahlian
+				record["link_web_instansi"] = detailData.Data.LinkWebInstansi
+				record["call_center_instansi"] = detailData.Data.CallCenterInstansi
+				record["medsos_instansi"] = detailData.Data.MedsosInstansi
+				record["helpdesk_instansi"] = detailData.Data.HelpdeskInstansi
+				record["syarat_admin"] = detailData.Data.SyaratAdmin
+				record["kualifikasi_pendidikan"] = detailData.Data.KualifikasiPendidikan
 
-               results <- record
-           }
-       }
-   }
+				results <- record
+			}
+		}
+	}
 }
 
 func writeToExcel(cfg *Config, completeData []map[string]interface{}, excelOutputFile string) error {
@@ -261,17 +261,17 @@ func writeToExcel(cfg *Config, completeData []map[string]interface{}, excelOutpu
 		f.SetCellValue(sheet, fmt.Sprintf("N%d", i+5), record["medsos_instansi"])
 		f.SetCellValue(sheet, fmt.Sprintf("O%d", i+5), record["helpdesk_instansi"])
 
-        var syaratAdmin []string
-        if syaratAdminData, ok := record["syarat_admin"].([]struct {
-            Syarat      string `json:"syarat"`
-            IsMandatory string `json:"is_mandatory"`
-        }); ok {
-            for _, syarat := range syaratAdminData {
-                syaratAdmin = append(syaratAdmin, syarat.Syarat)
-            }
-        }
+		var syaratAdmin []string
+		if syaratAdminData, ok := record["syarat_admin"].([]struct {
+			Syarat      string `json:"syarat"`
+			IsMandatory string `json:"is_mandatory"`
+		}); ok {
+			for _, syarat := range syaratAdminData {
+				syaratAdmin = append(syaratAdmin, syarat.Syarat)
+			}
+		}
 
-        f.SetCellValue(sheet, fmt.Sprintf("P%d", i+5), strings.Join(syaratAdmin, ", "))
+		f.SetCellValue(sheet, fmt.Sprintf("P%d", i+5), strings.Join(syaratAdmin, ", "))
 		f.SetCellValue(sheet, fmt.Sprintf("Q%d", i+5), record["kualifikasi_pendidikan"])
 	}
 
