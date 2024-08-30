@@ -1,4 +1,5 @@
-This project is used for personal and educational purposes. It is designed to scrape data from an API, parse it into an Excel format (.xlsx), and save it under the "data/" directory. Additionally, it implements concurrent processing using goroutines, so on my local computer, it can retrieve 500-600 records per minute, followed by detailed data from another endpoint.
+# SSCASN SCRAPER
+This project is used for personal and educational purposes. It is designed to scrape data from an API of https://api-sscasn.bkn.go.id which is used for https://sscasn.bkn.go.id, parse it into an Excel format (.xlsx), and save it under the "data/" directory. It also implements job/worker and concurrent processing using goroutines which will run 10 request per second.
 
 ## How to run
 
@@ -8,15 +9,17 @@ cd sscasn-scraper
 go mod tidy
 ```
 
+Example getting data from API for "S1 Pendidikan Keagamaan Katolik"
+
 ```bash
 go run mod.go -kodeRefPend=5102656 -namaJurusan="S1 Pendidikan Keagamaan Katolik" 
 ```
 
-you can also add flag `-provinsi="Jawa Tengah"` if you want filter by *Instansi* contain the string.
+You can also add flag in example `-provinsi="Jawa Tengah"` if you want filter by *Instansi* where is contain the string.
 
-or you maybe want to run with multiple kode ref pendidikan. Please take a look of `run_all_program.sh` and `data.json`. Ensure you have `jq` before you can run this.
+Or maybe you want to run with multiple `kodeRefPend`. Put your desired `kodeRefPend` and `namaJurusan` in `data.json`, then run `./run_all_programs.sh`. It will run one by one synchrounously. Ensure that you have `jq` installed in your system and make it script is executable
 
-## How to get KodeRefPend (Bahasa)
+## How to get kodeRefPend (Bahasa)
 
 1. Buka browser dan masuk ke halaman https://sscasn.bkn.go.id/
 2. Buka network tab di inspect element
