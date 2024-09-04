@@ -1,4 +1,4 @@
-module github.com/dpurbosakti/scrape-casn
+module github.com/rizkyilhampra/sscasn-scrape
 
 go 1.21.5
 
