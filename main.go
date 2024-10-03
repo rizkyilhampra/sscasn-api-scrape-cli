@@ -72,6 +72,8 @@ type Config struct {
 	KodeRefPend  string
 	NamaJurusan  string
 	FilterLokasi string
+	PengadaanKd  int
+	InstansiId   string
 	Client       *http.Client
 	Limiter      *rate.Limiter
 }
@@ -81,7 +83,13 @@ func backoff(attempt int) time.Duration {
 }
 
 func fetchData(cfg *Config, offset int) (*Response, error) {
-	var url string = fmt.Sprintf("%s?kode_ref_pend=%s&offset=%d", baseURL, cfg.KodeRefPend, offset)
+    url := fmt.Sprintf("%s?kode_ref_pend=%s&offset=%d&pengadaan_kd=%d", baseURL, cfg.KodeRefPend, offset, cfg.PengadaanKd)
+    if cfg.InstansiId != "" {
+        url += fmt.Sprintf("&instansi_id=%s", cfg.InstansiId)
+    }
+
+    log.Println(url)
+    
 	var data *Response
 	var err error
 
@@ -226,7 +234,7 @@ func writeToExcel(cfg *Config, completeData []map[string]interface{}, excelOutpu
 	f.SetSheetName("Sheet1", sheet)
 
 	headers := []string{
-		"ins_nm", "jp_nm", "formasi_nm", "jabatan_nm", "lokasi_nm", "jumlah_formasi",
+		"ins_nm", "jp_nm", "formasi_nm", "jabatan_nm", "lokasi_nm", "jumlah_formasi", "jumlah_ms",
 		"gaji_min", "gaji_max", "pengumuman", "job_desc", "keahlian", "link_web_instansi",
 		"call_center_instansi", "medsos_instansi", "helpdesk_instansi", "syarat_admin", "kualifikasi_pendidikan",
 	}
@@ -251,15 +259,16 @@ func writeToExcel(cfg *Config, completeData []map[string]interface{}, excelOutpu
 		f.SetCellValue(sheet, fmt.Sprintf("D%d", i+5), record["jabatan_nm"])
 		f.SetCellValue(sheet, fmt.Sprintf("E%d", i+5), record["lokasi_nm"])
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", i+5), record["jumlah_formasi"])
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", i+5), gajiMin)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", i+5), gajiMax)
-		f.SetCellValue(sheet, fmt.Sprintf("I%d", i+5), fmt.Sprintf("https://sscasn.bkn.go.id/detailformasi/%v", record["formasi_id"]))
-		f.SetCellValue(sheet, fmt.Sprintf("J%d", i+5), record["job_desc"])
-		f.SetCellValue(sheet, fmt.Sprintf("K%d", i+5), record["keahlian"])
-		f.SetCellValue(sheet, fmt.Sprintf("L%d", i+5), record["link_web_instansi"])
-		f.SetCellValue(sheet, fmt.Sprintf("M%d", i+5), record["call_center_instansi"])
-		f.SetCellValue(sheet, fmt.Sprintf("N%d", i+5), record["medsos_instansi"])
-		f.SetCellValue(sheet, fmt.Sprintf("O%d", i+5), record["helpdesk_instansi"])
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", i+5), record["jumlah_ms"])
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", i+5), gajiMin)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", i+5), gajiMax)
+		f.SetCellValue(sheet, fmt.Sprintf("J%d", i+5), fmt.Sprintf("https://sscasn.bkn.go.id/detailformasi/%v", record["formasi_id"]))
+		f.SetCellValue(sheet, fmt.Sprintf("K%d", i+5), record["job_desc"])
+		f.SetCellValue(sheet, fmt.Sprintf("L%d", i+5), record["keahlian"])
+		f.SetCellValue(sheet, fmt.Sprintf("M%d", i+5), record["link_web_instansi"])
+		f.SetCellValue(sheet, fmt.Sprintf("N%d", i+5), record["call_center_instansi"])
+		f.SetCellValue(sheet, fmt.Sprintf("O%d", i+5), record["medsos_instansi"])
+		f.SetCellValue(sheet, fmt.Sprintf("P%d", i+5), record["helpdesk_instansi"])
 
 		var syaratAdmin []string
 		if syaratAdminData, ok := record["syarat_admin"].([]struct {
@@ -271,8 +280,8 @@ func writeToExcel(cfg *Config, completeData []map[string]interface{}, excelOutpu
 			}
 		}
 
-		f.SetCellValue(sheet, fmt.Sprintf("P%d", i+5), strings.Join(syaratAdmin, ", "))
-		f.SetCellValue(sheet, fmt.Sprintf("Q%d", i+5), record["kualifikasi_pendidikan"])
+		f.SetCellValue(sheet, fmt.Sprintf("Q%d", i+5), strings.Join(syaratAdmin, ", "))
+		f.SetCellValue(sheet, fmt.Sprintf("R%d", i+5), record["kualifikasi_pendidikan"])
 	}
 
 	for i := 1; i <= len(headers); i++ {
@@ -287,6 +296,8 @@ func main() {
 	kodeRefPend := flag.String("kodeRefPend", "", "Kode referensi pendidikan")
 	namaJurusan := flag.String("namaJurusan", "", "Nama jurusan")
 	filterLokasi := flag.String("provinsi", "", "Provinsi yang diinginkan. Contoh: -provinsi=\"Jawa Timur\"")
+	pengadaanKd := flag.Int("pengadaanKd", 2, "Kode pengadaan")
+	instansiId := flag.String("instansiId", "", "ID instansi. Contoh: -instansiID=\"A5EB03E23AFBF6A0E040640A040252AD\" (untuk Kementerian Lingkungan Hidup dan Kehutanan)")
 	flag.Parse()
 
 	if *kodeRefPend == "" || *namaJurusan == "" {
@@ -297,6 +308,8 @@ func main() {
 		KodeRefPend:  *kodeRefPend,
 		NamaJurusan:  *namaJurusan,
 		FilterLokasi: *filterLokasi,
+		PengadaanKd:  *pengadaanKd,
+		InstansiId:   *instansiId,
 		Client:       &http.Client{ Timeout: 30 * time.Second, },
 		Limiter:      rate.NewLimiter(rate.Every(100*time.Millisecond), 1), // 10 requests per second
 	}
