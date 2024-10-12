@@ -3,7 +3,7 @@
 An personal and educational tool designed to scrape job vacancy data from the [SSCASN API](https://api-sscasn.bkn.go.id), which powers the [SSCASN portal](https://sscasn.bkn.go.id). The program fetches data, processes it, and exports the results into an Excel file `.xlsx` stored in the `data` directory. It leverages concurrent processing with goroutines, allowing up to 10 requests per second for efficient data retrieval.
 
 > [!NOTE]
-> It's my first time using Go BTW
+> This project is my first learning experience to explore Go and concurrency features. 
 
 ## Table of Contents
 
